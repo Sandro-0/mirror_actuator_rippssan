@@ -1,5 +1,4 @@
-#ifndef DATA_STRUCTS_H_
-#define DATA_STRUCTS_H_
+#pragma once
 
 
 typedef struct{
@@ -14,5 +13,4 @@ typedef struct{
     bool laser_on;
     uint8_t num_it;
     }Data_Xchange;
-#endif
     

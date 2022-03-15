@@ -1,8 +1,14 @@
 // includes
-#include "uart_comm_thread.h"
 #include <cstdint>
+#include "uart_comm_thread.h"
+
+
+
+extern DataLogger myDataLogger;
 
 extern GPA myGPA;
+
+
 
 /*
 -------- DATA PROTOCOL----------------------------
@@ -41,9 +47,6 @@ extern GPA myGPA;
 
 2xx: set-value and commands (like disable controller...)
 		id1		id2	
-	 	201: 			Set values/parameters
-				1 		inc_additional_offset phi1 / increments	int16_t
-				2		inc_additional_offset phi2	/ 		"			"
 		
 		202:			set desired absolute values	
 				1		phi1		rad		float
@@ -55,6 +58,13 @@ extern GPA myGPA;
 				2		dphi2		rad		float
 				3		dx			mm		float
 				4		dy			mm		float
+        210:    Log data
+                100     log status
+                101     start log
+                1       send log values
+        211     Log type
+                1   step
+                2   sine
 		220			Laser on/off
 				1	0 = off, 1 = on
 		221			Trafo on/off
@@ -77,18 +87,13 @@ uart_comm_thread::uart_comm_thread(Data_Xchange *data,Mirror_Kinematic *mk,Buffe
     this->uart = com;
     this->m_data = data;
     this->m_mk = mk;
-    //uart->attach(callback(this, &uart_comm_thread::callBack), RawSerial::RxIrq);
     this->Ts = Ts;
     this->csm = 0;
     gpa_stop_sent = false;
 }
 
 // #### destructor
-uart_comm_thread::~uart_comm_thread() {
-}
-
-
-
+uart_comm_thread::~uart_comm_thread() {}
 
 // #### run the statemachine
 void uart_comm_thread::run(void)
@@ -122,8 +127,29 @@ void uart_comm_thread::run(void)
 				break;	
 			case 125:		// number of iterations in the trafo
 				send(125,1,1,(char *)&m_data->num_it);		
-				send_state = 250;
+				send_state = 210;
 				break;
+			case 210:		// number of iterations in the trafo
+				if(myDataLogger.new_data_available)
+                    {
+                        if(myDataLogger.packet*200<4*3*myDataLogger.N)
+                            send(210,1+myDataLogger.packet,200,(char *)&(myDataLogger.log_data[myDataLogger.packet*200]));
+                        else
+                            {
+                            send(210,1+myDataLogger.packet,4*3*myDataLogger.N-myDataLogger.packet*200,(char *)&(myDataLogger.log_data[myDataLogger.packet*200]));
+                            myDataLogger.log_status = 1;
+                            myDataLogger.new_data_available = false;
+                            send_state = 211;
+                            }
+                        myDataLogger.packet++;
+                    }
+                else
+                    send_state = 250;
+				break;
+            case 211:
+                send(210,99,0,buffer);
+                send_state = 250;
+                break;
 			case 250:		// send GPA values
 				if(myGPA.new_data_available)
 					{
@@ -200,7 +226,8 @@ void uart_comm_thread::send(uint8_t id1, uint8_t id2, uint16_t N, char *m)
 	for (int i = 0; i < 7; ++i)
 		csm += buffer[i];
 	/* send data */
-    uart->write(m,N);
+    if(N>0)
+        uart->write(m,N);
    	for (uint16_t i = 0; i < N; ++i)
 		csm += m[i];
 	uart->write(&csm,1);
@@ -263,6 +290,20 @@ bool uart_comm_thread::analyse_received_data(void){
 					break;
 				}
 			break;		// case 203
+        case 210:
+            switch(msg_id2)
+                {
+                case 101:
+                    if(myDataLogger.log_status == 1)
+                        {
+                        myDataLogger.reset_data();
+                        myDataLogger.input_type = (uint8_t)buffer[7];
+                        send_text((char *)"Started time measure");
+                        myDataLogger.log_status = 2;
+                        }
+                    break;
+                }
+            break;      // case 210
 		case 220:				// switch laser on/off
 			if(N != 1)
 				return false;

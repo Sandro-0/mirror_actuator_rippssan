@@ -5,12 +5,13 @@
 #include "ThreadFlag.h"
 #include "path_1d.h"
 #include "PID_Cntrl.h"
-#include "Unwrapper_2pi.h"
 #include "Mirror_Kinematic.h"
 #include "data_structs.h"
 #include "GPA.h"
+#include "DataLogger.h"
 #include "FastPWM.h"
 #include "sensors_actuators.h"
+
 
 //extern AnalogIn i_act2;
 
@@ -18,7 +19,7 @@
 class ControllerLoop
 {
 public:
-    ControllerLoop(Data_Xchange *,sensors_actuators *,float Ts);
+    ControllerLoop(Data_Xchange *,sensors_actuators *,Mirror_Kinematic *,float Ts);
     virtual     ~ControllerLoop();
     void start_loop(void);
     void init_controllers(void);
@@ -40,4 +41,5 @@ private:
     float Kv;
     Data_Xchange *m_data;
     sensors_actuators *m_sa;
+    Mirror_Kinematic *m_mk;
 };

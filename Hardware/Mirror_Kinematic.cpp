@@ -7,39 +7,21 @@ Mirror_Kinematic::Mirror_Kinematic(Data_Xchange *data)
     screen_d = 4;
     dist_L = 16;
     inc_offset[0] = inc_offset[1] = 0;
-    inc_additional_offset[0] = inc_additional_offset[1] = 0;
-    mot_inc_to_rad = (3.141592653589793 * 2.0) / 4000.0;
-    mot_rad_to_inc = 4000.0/(3.141592653589793 * 2.0);
     n = 1.585;  // index of refraction, Brechungsindex
     old_phi[0]=0.0;
     old_phi[1]=0.0;
     trafo_is_on = false;
     external_control = false;
     controller_is_on = true;
+    max_num_it = 12;
     }
     
 void Mirror_Kinematic::set_offsets(int16_t o1,int16_t o2)
 {
     inc_offset[0] = o1;
     inc_offset[1] = o2;
-    }
-void Mirror_Kinematic::set_additional_offsets(int16_t o1,int16_t o2)
-{
-    inc_additional_offset[0] = o1;
-    inc_additional_offset[1] = o2;
-    }
-void Mirror_Kinematic::add_additional_offsets(int16_t o1,int16_t o2)
-{
-    inc_additional_offset[0] += o1;
-    inc_additional_offset[1] += o2;
-    }
-int16_t Mirror_Kinematic::get_additional_offsets(uint8_t axis)
-{
-    if(axis>1)
-        return 0;
-    else
-        return inc_additional_offset[axis];
-    }
+}
+
 // this is the transformation, transforming phi to xy values
 bool Mirror_Kinematic::P2X(float *P, float *X)
 {
@@ -90,7 +72,7 @@ bool Mirror_Kinematic::X2P(float *X, float *P)
     uint8_t k = 0;
     do
         {
-            if(!P2X(P,Xn) || k==20)
+            if(!P2X(P,Xn) || k==max_num_it)
                 return false;
             dx = Xn[0]-X[0];
             dy = Xn[1]-X[1];
